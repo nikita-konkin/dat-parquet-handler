@@ -1,0 +1,7 @@
+services:
+  dat-parquet-handler:
+    build: .
+    image: dat-parquet-handler:latest
+    volumes:
+      - ./data:/data
+    command: ["--help"]
