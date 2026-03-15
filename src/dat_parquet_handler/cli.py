@@ -63,10 +63,10 @@ def main() -> int:
         print(f"error: {err}")
         return 1
 
-    for rec in converted:
-        print(f"converted: {rec.source} -> {rec.destination}")
+    # for rec in converted:
+    #     print(f"converted: {rec.source} -> {rec.destination}")
 
-    print(f"done: {len(converted)} file(s) converted")
+    # print(f"done: {len(converted)} file(s) converted")
     return 0
 
 

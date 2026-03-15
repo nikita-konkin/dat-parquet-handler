@@ -27,6 +27,20 @@ Options:
 - `--dst` : destination root directory (defaults to source)
 - `--overwrite` : overwrite existing destination files
 
+During conversion, the tool logs progress messages that can be parsed by automation:
+
+- `Completed 3 / 10`
+- `Progress: 30%`
+
+For `.parquet` -> `.dat` with TEC columns (`tsn, hour, el, az, tec.l1l2, tec.c1p2, validity`),
+the writer uses fixed-width spacing compatible with original DAT layout:
+
+- `# (I11,1X,F14.11,1X,F10.5,1X,F11.5,1X,F21.3,1X,F10.3,1X,I7)`
+
+When Parquet files are created by this tool from DAT inputs, the original DAT header block
+(`Created on`, `Sources`, `Satellite`, `Site`, positions, `datetime format`, etc.) is stored
+in Parquet metadata and restored on `.parquet` -> `.dat` conversion.
+
 ## Run tests
 
 ```bash
