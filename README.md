@@ -1,11 +1,17 @@
 # dat-parquet-handler
 
-Standalone project for converting tec-suite output files in both directions:
+Standalone project for converting DAT files in both directions:
 
 - `.dat` -> `.parquet`
 - `.parquet` -> `.dat`
 
 The converter preserves relative directory structure from source root to destination root.
+
+Supported DAT layouts:
+
+- TEC-suite files with `# Columns: ...` headers (including fixed-width TEC satellite rows)
+- TayAbsTEC time-series files with header like `# UT  I_v  G_lon ...`
+- TayAbsTEC DCB files with sections `# DCB sat:` and `# DCB rec:`
 
 ## Install
 
@@ -19,6 +25,25 @@ pip install .
 dat-parquet-handler --direction dat-to-parquet --src /path/to/out --dst /path/to/out_parquet
 dat-parquet-handler --direction parquet-to-dat --src /path/to/out_parquet --dst /path/to/out_dat
 ```
+
+Year/day/station tree example:
+
+```bash
+dat-parquet-handler --direction dat-to-parquet --src /data/absoltec_out --dst /data/absoltec_parquet
+```
+
+If source contains:
+
+`/data/absoltec_out/2026/001/aksu0010/alex_001_2026.dat`
+
+and:
+
+`/data/absoltec_out/2026/001/aksu0010/DCB_alex_001_2026.dat`
+
+then output will contain:
+
+- `/data/absoltec_parquet/2026/001/aksu0010/alex_001_2026.parquet`
+- `/data/absoltec_parquet/2026/001/aksu0010/DCB_alex_001_2026.parquet`
 
 Options:
 
@@ -40,6 +65,13 @@ the writer uses fixed-width spacing compatible with original DAT layout:
 When Parquet files are created by this tool from DAT inputs, the original DAT header block
 (`Created on`, `Sources`, `Satellite`, `Site`, positions, `datetime format`, etc.) is stored
 in Parquet metadata and restored on `.parquet` -> `.dat` conversion.
+
+For TayAbsTEC DCB files, Parquet data is stored with columns:
+
+- `section` (`sat` or `rec`)
+- `system` (for example `G`, `R`)
+- `prn` (nullable, used for `sat` rows)
+- `value`
 
 ## Run tests
 

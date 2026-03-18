@@ -157,3 +157,131 @@ def test_dat_headers_restored_after_round_trip(tmp_path: Path) -> None:
     ]
 
     assert restored_headers == original_headers
+
+
+def test_tayabstec_series_dat_to_parquet_and_back(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    mid = tmp_path / "mid"
+    dst = tmp_path / "dst"
+
+    dat_file = src / "2026" / "001" / "aksu0010" / "aksu_001_2026.dat"
+    dat_file.parent.mkdir(parents=True, exist_ok=True)
+    dat_file.write_text(
+        "\n".join(
+            [
+                "# UT  I_v  G_lon  G_lat  G_q_lon  G_q_lat  G_t  G_q_t",
+                "  0.000      5.032     -0.027     -0.626     -0.009     0.043     -0.193      0.080",
+                "  0.050      4.812     -0.026     -0.592     -0.010     0.039     -1.087     -0.597",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    to_parquet = convert_tree(src, mid, direction="dat-to-parquet")
+    assert len(to_parquet) == 1
+
+    parquet_file = mid / "2026" / "001" / "aksu0010" / "aksu_001_2026.parquet"
+    assert parquet_file.exists()
+
+    df = pd.read_parquet(parquet_file)
+    assert list(df.columns) == ["UT", "I_v", "G_lon", "G_lat", "G_q_lon", "G_q_lat", "G_t", "G_q_t"]
+    assert len(df) == 2
+
+    to_dat = convert_tree(mid, dst, direction="parquet-to-dat")
+    assert len(to_dat) == 1
+
+    out_file = dst / "2026" / "001" / "aksu0010" / "aksu_001_2026.dat"
+    assert out_file.exists()
+
+    restored_headers = [
+        line
+        for line in out_file.read_text(encoding="utf-8").splitlines()
+        if line.startswith("#")
+    ]
+    assert restored_headers == ["# UT  I_v  G_lon  G_lat  G_q_lon  G_q_lat  G_t  G_q_t"]
+
+
+def test_tayabstec_dcb_dat_to_parquet_and_back(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    mid = tmp_path / "mid"
+    dst = tmp_path / "dst"
+
+    dat_file = src / "2026" / "001" / "aksu0010" / "DCB_aksu_001_2026.dat"
+    dat_file.parent.mkdir(parents=True, exist_ok=True)
+    dat_file.write_text(
+        "\n".join(
+            [
+                "# DCB sat:",
+                "G 1     -10.665",
+                "G10      13.410",
+                "R 2       2.670",
+                "# DCB rec:",
+                "G     -34.972",
+                "R     -20.379",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    to_parquet = convert_tree(src, mid, direction="dat-to-parquet")
+    assert len(to_parquet) == 1
+
+    parquet_file = mid / "2026" / "001" / "aksu0010" / "DCB_aksu_001_2026.parquet"
+    assert parquet_file.exists()
+
+    df = pd.read_parquet(parquet_file)
+    assert list(df.columns) == ["section", "system", "prn", "value"]
+    assert len(df) == 5
+    assert df["section"].tolist() == ["sat", "sat", "sat", "rec", "rec"]
+
+    to_dat = convert_tree(mid, dst, direction="parquet-to-dat")
+    assert len(to_dat) == 1
+
+    out_file = dst / "2026" / "001" / "aksu0010" / "DCB_aksu_001_2026.dat"
+    assert out_file.exists()
+
+    content = out_file.read_text(encoding="utf-8")
+    assert "# DCB sat:" in content
+    assert "# DCB rec:" in content
+    assert "G 1    -10.665" in content
+    assert "G10     13.410" in content
+    assert "G    -34.972" in content
+
+
+def test_convert_tree_skips_invalid_dat_and_continues(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+
+    invalid_dat = src / "001" / "armv001w30" / "armv_001_2026.dat"
+    invalid_dat.parent.mkdir(parents=True, exist_ok=True)
+    invalid_dat.write_text(
+        "\n".join(
+            [
+                "# UT  I_v  G_lon  G_lat  G_q_lon  G_q_lat  G_t  G_q_t",
+                "# only header, no rows",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    valid_dat = src / "001" / "aksu0010" / "aksu_001_2026.dat"
+    valid_dat.parent.mkdir(parents=True, exist_ok=True)
+    valid_dat.write_text(
+        "\n".join(
+            [
+                "# UT  I_v  G_lon  G_lat  G_q_lon  G_q_lat  G_t  G_q_t",
+                "  0.000      5.032     -0.027     -0.626     -0.009     0.043     -0.193      0.080",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    converted = convert_tree(src, dst, direction="dat-to-parquet")
+
+    assert len(converted) == 1
+    assert (dst / "001" / "aksu0010" / "aksu_001_2026.parquet").exists()
+    assert not (dst / "001" / "armv001w30" / "armv_001_2026.parquet").exists()
