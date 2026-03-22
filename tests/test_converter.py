@@ -285,3 +285,67 @@ def test_convert_tree_skips_invalid_dat_and_continues(tmp_path: Path) -> None:
     assert len(converted) == 1
     assert (dst / "001" / "aksu0010" / "aksu_001_2026.parquet").exists()
     assert not (dst / "001" / "armv001w30" / "armv_001_2026.parquet").exists()
+
+
+def test_dat_to_parquet_uses_station_suffix_for_10_char_station_folder(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+
+    dat_file = src / "2026" / "001" / "armv001k00" / "armv_001_2026.dat"
+    dat_file.parent.mkdir(parents=True, exist_ok=True)
+    dat_file.write_text(
+        "\n".join(
+            [
+                "# UT  I_v  G_lon  G_lat  G_q_lon  G_q_lat  G_t  G_q_t",
+                "  0.000      5.032     -0.027     -0.626     -0.009     0.043     -0.193      0.080",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    converted = convert_tree(src, dst, direction="dat-to-parquet")
+
+    assert len(converted) == 1
+    assert (dst / "2026" / "001" / "armv001k00" / "armvk00_001_2026.parquet").exists()
+    assert not (dst / "2026" / "001" / "armv001k00" / "armv_001_2026.parquet").exists()
+
+
+def test_tec_suite_dat_to_parquet_uses_station_suffix_for_10_char_station_folder(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+
+    dat_file = src / "2026" / "001" / "aksu001i14" / "aksu_E02_001_26.dat"
+    _write_sample_dat(dat_file)
+
+    converted = convert_tree(src, dst, direction="dat-to-parquet")
+
+    assert len(converted) == 1
+    assert (dst / "2026" / "001" / "aksu001i14" / "aksui14_E02_001_26.parquet").exists()
+    assert not (dst / "2026" / "001" / "aksu001i14" / "aksu_E02_001_26.parquet").exists()
+
+
+def test_tec_suite_parquet_to_dat_restores_original_station_name(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+
+    parquet_file = src / "2026" / "001" / "aksu001i14" / "aksui14_E02_001_26.parquet"
+    parquet_file.parent.mkdir(parents=True, exist_ok=True)
+    df = pd.DataFrame(
+        {
+            "tsn": [1],
+            "hour": [0.00833333333],
+            "el": [16.81043],
+            "az": [237.18424],
+            "tec.l1l2": [16.9],
+            "tec.c1p2": [-33.502],
+            "validity": [0],
+        }
+    )
+    df.to_parquet(parquet_file, index=False)
+
+    converted = convert_tree(src, dst, direction="parquet-to-dat")
+
+    assert len(converted) == 1
+    assert (dst / "2026" / "001" / "aksu001i14" / "aksu_E02_001_26.dat").exists()
+    assert not (dst / "2026" / "001" / "aksu001i14" / "aksui14_E02_001_26.dat").exists()

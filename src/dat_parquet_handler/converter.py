@@ -433,6 +433,55 @@ def convert_file(src: Path, dst: Path, direction: str, overwrite: bool = False) 
     raise ValueError(f"Unknown direction: {direction}")
 
 
+def _absoltec_station_codes(station_folder: str) -> tuple[str, str]:
+    if len(station_folder) == 8:
+        code = station_folder[:4]
+        return code, code
+    if len(station_folder) == 10:
+        original = station_folder[:4]
+        mapped = station_folder[:4] + station_folder[-3:]
+        return original, mapped
+    return station_folder, station_folder
+
+
+def _absoltec_output_filename(rel_path: Path, out_suffix: str, direction: str) -> str:
+    parts = rel_path.parts
+    if len(parts) < 2:
+        return rel_path.with_suffix(out_suffix).name
+
+    station_folder = parts[-2]
+    original_station, mapped_station = _absoltec_station_codes(station_folder)
+    stem_parts = rel_path.stem.split("_")
+
+    if direction == "dat-to-parquet":
+        from_station = original_station
+        to_station = mapped_station
+    elif direction == "parquet-to-dat":
+        from_station = mapped_station
+        to_station = original_station
+    else:
+        return rel_path.with_suffix(out_suffix).name
+
+    # Absoltec names are '<station>_<doy>_<year>' and 'DCB_<station>_<doy>_<year>'.
+    if len(stem_parts) == 3:
+        station, day, year = stem_parts
+        if station == from_station:
+            return f"{to_station}_{day}_{year}{out_suffix}"
+
+    if len(stem_parts) == 4 and stem_parts[0] == "DCB":
+        _, station, day, year = stem_parts
+        if station == from_station:
+            return f"DCB_{to_station}_{day}_{year}{out_suffix}"
+
+    # TEC-suite names are '<station>_<satellite>_<doy>_<yy>'.
+    if len(stem_parts) == 4 and stem_parts[0] != "DCB":
+        station, satellite, day, year = stem_parts
+        if station == from_station:
+            return f"{to_station}_{satellite}_{day}_{year}{out_suffix}"
+
+    return rel_path.with_suffix(out_suffix).name
+
+
 def convert_tree(src_root: Path, dst_root: Path, direction: str, overwrite: bool = False) -> list[ConvertResult]:
     if direction == "dat-to-parquet":
         in_suffix = ".dat"
@@ -455,6 +504,7 @@ def convert_tree(src_root: Path, dst_root: Path, direction: str, overwrite: bool
     for idx, src_file in enumerate(source_files, start=1):
         rel_path = src_file.relative_to(src_root)
         dst_file = (dst_root / rel_path).with_suffix(out_suffix)
+        dst_file = dst_file.with_name(_absoltec_output_filename(rel_path, out_suffix, direction))
 
         try:
             result = convert_file(src_file, dst_file, direction=direction, overwrite=overwrite)
