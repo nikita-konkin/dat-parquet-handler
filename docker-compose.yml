@@ -2,6 +2,9 @@ services:
   dat-parquet-handler:
     build: .
     image: dat-parquet-handler:latest
+    env_file:
+      - .env
     volumes:
-      - ./data:/data
+      - ${SOURCE_DIR}:/input
+      - ${DEST_DIR}:/output
     command: ["--help"]
