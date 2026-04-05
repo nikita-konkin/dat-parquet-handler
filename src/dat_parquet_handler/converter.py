@@ -482,6 +482,25 @@ def _absoltec_output_filename(rel_path: Path, out_suffix: str, direction: str) -
     return rel_path.with_suffix(out_suffix).name
 
 
+def _trim_station_folder_suffix(station_folder: str) -> str:
+    if len(station_folder) <= 4:
+        return station_folder
+    return station_folder[:-4]
+
+
+def _output_parent_for_direction(rel_path: Path, direction: str) -> Path:
+    parent = rel_path.parent
+    if direction != "dat-to-parquet":
+        return parent
+
+    parts = list(parent.parts)
+    if not parts:
+        return parent
+
+    parts[-1] = _trim_station_folder_suffix(parts[-1])
+    return Path(*parts)
+
+
 def convert_tree(src_root: Path, dst_root: Path, direction: str, overwrite: bool = False) -> list[ConvertResult]:
     if direction == "dat-to-parquet":
         in_suffix = ".dat"
@@ -503,7 +522,8 @@ def convert_tree(src_root: Path, dst_root: Path, direction: str, overwrite: bool
 
     for idx, src_file in enumerate(source_files, start=1):
         rel_path = src_file.relative_to(src_root)
-        dst_file = (dst_root / rel_path).with_suffix(out_suffix)
+        output_parent = _output_parent_for_direction(rel_path, direction)
+        dst_file = (dst_root / output_parent / rel_path.name).with_suffix(out_suffix)
         dst_file = dst_file.with_name(_absoltec_output_filename(rel_path, out_suffix, direction))
 
         try:

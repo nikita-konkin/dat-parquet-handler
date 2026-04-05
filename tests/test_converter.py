@@ -39,6 +39,20 @@ def test_dat_to_parquet_tree_preserves_structure(tmp_path: Path) -> None:
     assert len(df) == 2
 
 
+def test_dat_to_parquet_trims_last_four_chars_from_station_folder(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+
+    dat_file = src / "2026" / "070" / "aksu3070" / "aksu_G04_070_26.dat"
+    _write_sample_dat(dat_file)
+
+    converted = convert_tree(src, dst, direction="dat-to-parquet")
+
+    assert len(converted) == 1
+    assert (dst / "2026" / "070" / "aksu" / "aksu_G04_070_26.parquet").exists()
+    assert not (dst / "2026" / "070" / "aksu3070" / "aksu_G04_070_26.parquet").exists()
+
+
 def test_parquet_to_dat_tree_preserves_structure(tmp_path: Path) -> None:
     src = tmp_path / "src"
     dst = tmp_path / "dst"
@@ -181,7 +195,7 @@ def test_tayabstec_series_dat_to_parquet_and_back(tmp_path: Path) -> None:
     to_parquet = convert_tree(src, mid, direction="dat-to-parquet")
     assert len(to_parquet) == 1
 
-    parquet_file = mid / "2026" / "001" / "aksu0010" / "aksu_001_2026.parquet"
+    parquet_file = mid / "2026" / "001" / "aksu" / "aksu_001_2026.parquet"
     assert parquet_file.exists()
 
     df = pd.read_parquet(parquet_file)
@@ -191,7 +205,7 @@ def test_tayabstec_series_dat_to_parquet_and_back(tmp_path: Path) -> None:
     to_dat = convert_tree(mid, dst, direction="parquet-to-dat")
     assert len(to_dat) == 1
 
-    out_file = dst / "2026" / "001" / "aksu0010" / "aksu_001_2026.dat"
+    out_file = dst / "2026" / "001" / "aksu" / "aksu_001_2026.dat"
     assert out_file.exists()
 
     restored_headers = [
@@ -228,7 +242,7 @@ def test_tayabstec_dcb_dat_to_parquet_and_back(tmp_path: Path) -> None:
     to_parquet = convert_tree(src, mid, direction="dat-to-parquet")
     assert len(to_parquet) == 1
 
-    parquet_file = mid / "2026" / "001" / "aksu0010" / "DCB_aksu_001_2026.parquet"
+    parquet_file = mid / "2026" / "001" / "aksu" / "DCB_aksu_001_2026.parquet"
     assert parquet_file.exists()
 
     df = pd.read_parquet(parquet_file)
@@ -239,7 +253,7 @@ def test_tayabstec_dcb_dat_to_parquet_and_back(tmp_path: Path) -> None:
     to_dat = convert_tree(mid, dst, direction="parquet-to-dat")
     assert len(to_dat) == 1
 
-    out_file = dst / "2026" / "001" / "aksu0010" / "DCB_aksu_001_2026.dat"
+    out_file = dst / "2026" / "001" / "aksu" / "DCB_aksu_001_2026.dat"
     assert out_file.exists()
 
     content = out_file.read_text(encoding="utf-8")
@@ -283,7 +297,7 @@ def test_convert_tree_skips_invalid_dat_and_continues(tmp_path: Path) -> None:
     converted = convert_tree(src, dst, direction="dat-to-parquet")
 
     assert len(converted) == 1
-    assert (dst / "001" / "aksu0010" / "aksu_001_2026.parquet").exists()
+    assert (dst / "001" / "aksu" / "aksu_001_2026.parquet").exists()
     assert not (dst / "001" / "armv001w30" / "armv_001_2026.parquet").exists()
 
 
@@ -307,8 +321,8 @@ def test_dat_to_parquet_uses_station_suffix_for_10_char_station_folder(tmp_path:
     converted = convert_tree(src, dst, direction="dat-to-parquet")
 
     assert len(converted) == 1
-    assert (dst / "2026" / "001" / "armv001k00" / "armvk00_001_2026.parquet").exists()
-    assert not (dst / "2026" / "001" / "armv001k00" / "armv_001_2026.parquet").exists()
+    assert (dst / "2026" / "001" / "armv00" / "armvk00_001_2026.parquet").exists()
+    assert not (dst / "2026" / "001" / "armv00" / "armv_001_2026.parquet").exists()
 
 
 def test_tec_suite_dat_to_parquet_uses_station_suffix_for_10_char_station_folder(tmp_path: Path) -> None:
@@ -321,15 +335,15 @@ def test_tec_suite_dat_to_parquet_uses_station_suffix_for_10_char_station_folder
     converted = convert_tree(src, dst, direction="dat-to-parquet")
 
     assert len(converted) == 1
-    assert (dst / "2026" / "001" / "aksu001i14" / "aksui14_E02_001_26.parquet").exists()
-    assert not (dst / "2026" / "001" / "aksu001i14" / "aksu_E02_001_26.parquet").exists()
+    assert (dst / "2026" / "001" / "aksu00" / "aksui14_E02_001_26.parquet").exists()
+    assert not (dst / "2026" / "001" / "aksu00" / "aksu_E02_001_26.parquet").exists()
 
 
-def test_tec_suite_parquet_to_dat_restores_original_station_name(tmp_path: Path) -> None:
+def test_tec_suite_parquet_to_dat_keeps_filename_when_station_folder_is_trimmed(tmp_path: Path) -> None:
     src = tmp_path / "src"
     dst = tmp_path / "dst"
 
-    parquet_file = src / "2026" / "001" / "aksu001i14" / "aksui14_E02_001_26.parquet"
+    parquet_file = src / "2026" / "001" / "aksu00" / "aksui14_E02_001_26.parquet"
     parquet_file.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(
         {
@@ -347,5 +361,4 @@ def test_tec_suite_parquet_to_dat_restores_original_station_name(tmp_path: Path)
     converted = convert_tree(src, dst, direction="parquet-to-dat")
 
     assert len(converted) == 1
-    assert (dst / "2026" / "001" / "aksu001i14" / "aksu_E02_001_26.dat").exists()
-    assert not (dst / "2026" / "001" / "aksu001i14" / "aksui14_E02_001_26.dat").exists()
+    assert (dst / "2026" / "001" / "aksu00" / "aksui14_E02_001_26.dat").exists()
