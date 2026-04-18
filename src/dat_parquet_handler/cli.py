@@ -38,6 +38,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="overwrite existing destination files",
     )
 
+    parser.add_argument(
+        "--day-from",
+        type=int,
+        default=None,
+        help="inclusive start day-of-year filter (1..366)",
+    )
+
+    parser.add_argument(
+        "--day-to",
+        type=int,
+        default=None,
+        help="inclusive end day-of-year filter (1..366)",
+    )
+
     return parser
 
 
@@ -47,6 +61,21 @@ def main() -> int:
 
     src_root = Path(args.src).expanduser().resolve()
     dst_root = Path(args.dst).expanduser().resolve() if args.dst else src_root
+
+    day_from = args.day_from
+    day_to = args.day_to
+
+    if day_from is not None and not (1 <= day_from <= 366):
+        print("error: --day-from must be in range 1..366")
+        return 1
+
+    if day_to is not None and not (1 <= day_to <= 366):
+        print("error: --day-to must be in range 1..366")
+        return 1
+
+    if day_from is not None and day_to is not None and day_from > day_to:
+        print("error: --day-from must be less than or equal to --day-to")
+        return 1
 
     if not src_root.is_dir():
         print(f"error: source directory does not exist: {src_root}")
@@ -58,6 +87,8 @@ def main() -> int:
             dst_root=dst_root,
             direction=args.direction,
             overwrite=args.overwrite,
+            day_from=day_from,
+            day_to=day_to,
         )
     except Exception as err:  # pragma: no cover
         print(f"error: {err}")

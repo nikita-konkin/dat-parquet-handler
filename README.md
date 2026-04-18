@@ -51,6 +51,14 @@ Options:
 - `--src` : source root directory
 - `--dst` : destination root directory (defaults to source)
 - `--overwrite` : overwrite existing destination files
+- `--day-from` : inclusive start day-of-year filter (`1..366`)
+- `--day-to` : inclusive end day-of-year filter (`1..366`)
+
+Example range conversion (only days 120..130):
+
+```bash
+dat-parquet-handler --direction dat-to-parquet --src /data/in --dst /data/out --day-from 120 --day-to 130
+```
 
 During conversion, the tool logs progress messages that can be parsed by automation:
 

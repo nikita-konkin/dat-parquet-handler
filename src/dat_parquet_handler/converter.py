@@ -425,6 +425,41 @@ def iter_files(root: Path, suffix: str) -> Iterable[Path]:
             yield path
 
 
+def _extract_day_of_year(rel_path: Path) -> int | None:
+    parts = rel_path.parts
+
+    if len(parts) >= 3:
+        day_part = parts[-3]
+        if len(day_part) == 3 and day_part.isdigit():
+            day = int(day_part)
+            if 1 <= day <= 366:
+                return day
+
+    # Fallback: match names like '<station>_<doy>_<year>', 'DCB_<station>_<doy>_<year>',
+    # or '<station>_<satellite>_<doy>_<yy>'.
+    match = re.search(r"_(\d{3})_", rel_path.stem)
+    if match is None:
+        return None
+
+    day = int(match.group(1))
+    if 1 <= day <= 366:
+        return day
+    return None
+
+
+def _is_day_in_selected_range(rel_path: Path, day_from: int | None, day_to: int | None) -> bool:
+    if day_from is None and day_to is None:
+        return True
+
+    day = _extract_day_of_year(rel_path)
+    if day is None:
+        return False
+
+    low = day_from if day_from is not None else 1
+    high = day_to if day_to is not None else 366
+    return low <= day <= high
+
+
 def convert_file(src: Path, dst: Path, direction: str, overwrite: bool = False) -> ConvertResult | None:
     if direction == "dat-to-parquet":
         return convert_dat_to_parquet(src, dst, overwrite=overwrite)
@@ -501,7 +536,14 @@ def _output_parent_for_direction(rel_path: Path, direction: str) -> Path:
     return Path(*parts)
 
 
-def convert_tree(src_root: Path, dst_root: Path, direction: str, overwrite: bool = False) -> list[ConvertResult]:
+def convert_tree(
+    src_root: Path,
+    dst_root: Path,
+    direction: str,
+    overwrite: bool = False,
+    day_from: int | None = None,
+    day_to: int | None = None,
+) -> list[ConvertResult]:
     if direction == "dat-to-parquet":
         in_suffix = ".dat"
         out_suffix = ".parquet"
@@ -512,7 +554,11 @@ def convert_tree(src_root: Path, dst_root: Path, direction: str, overwrite: bool
         raise ValueError(f"Unknown direction: {direction}")
 
     converted: list[ConvertResult] = []
-    source_files = list(iter_files(src_root, in_suffix))
+    source_files = [
+        src_file
+        for src_file in iter_files(src_root, in_suffix)
+        if _is_day_in_selected_range(src_file.relative_to(src_root), day_from, day_to)
+    ]
     total = len(source_files)
 
     if total == 0:

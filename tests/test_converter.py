@@ -339,6 +339,43 @@ def test_tec_suite_dat_to_parquet_uses_station_suffix_for_10_char_station_folder
     assert not (dst / "2026" / "001" / "aksu00" / "aksu_E02_001_26.parquet").exists()
 
 
+def test_convert_tree_filters_by_day_range(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+
+    day_001 = src / "2026" / "001" / "aksu" / "aksu_G04_001_26.dat"
+    day_005 = src / "2026" / "005" / "aksu" / "aksu_G04_005_26.dat"
+    day_010 = src / "2026" / "010" / "aksu" / "aksu_G04_010_26.dat"
+
+    _write_sample_dat(day_001)
+    _write_sample_dat(day_005)
+    _write_sample_dat(day_010)
+
+    converted = convert_tree(src, dst, direction="dat-to-parquet", day_from=3, day_to=7)
+
+    assert len(converted) == 1
+    assert (dst / "2026" / "005" / "aksu" / "aksu_G04_005_26.parquet").exists()
+    assert not (dst / "2026" / "001" / "aksu" / "aksu_G04_001_26.parquet").exists()
+    assert not (dst / "2026" / "010" / "aksu" / "aksu_G04_010_26.parquet").exists()
+
+
+def test_convert_tree_day_range_uses_filename_when_day_folder_missing(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+
+    in_range = src / "custom" / "aksu" / "aksu_G04_020_26.dat"
+    out_of_range = src / "custom" / "aksu" / "aksu_G04_021_26.dat"
+
+    _write_sample_dat(in_range)
+    _write_sample_dat(out_of_range)
+
+    converted = convert_tree(src, dst, direction="dat-to-parquet", day_from=20, day_to=20)
+
+    assert len(converted) == 1
+    assert (dst / "custom" / "aksu" / "aksu_G04_020_26.parquet").exists()
+    assert not (dst / "custom" / "aksu" / "aksu_G04_021_26.parquet").exists()
+
+
 def test_tec_suite_parquet_to_dat_keeps_filename_when_station_folder_is_trimmed(tmp_path: Path) -> None:
     src = tmp_path / "src"
     dst = tmp_path / "dst"
